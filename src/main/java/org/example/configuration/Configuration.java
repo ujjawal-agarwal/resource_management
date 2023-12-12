@@ -2,6 +2,8 @@ package org.example.configuration;
 
 public class Configuration {
 
+    public final static Configuration DEFAULT_CONFIGURATION = new Configuration(null, 0);
+
     private final ConfigurationType type;
 
     private int units = 0;

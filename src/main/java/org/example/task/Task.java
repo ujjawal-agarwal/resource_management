@@ -3,37 +3,25 @@ package org.example.task;
 import org.example.configuration.Configuration;
 import org.example.configuration.ConfigurationType;
 
-import java.util.Date;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
-enum TaskStatus {
-    RUNNING,
-    COMPLETED,
-    PENDING;
-}
+public class Task implements Runnable{
 
-public abstract class Task {
+    private final String id;
 
-    private final String id = UUID.randomUUID().toString();
+    private final Runnable work;
 
     private Long startTime;
     private Long endTime;
 
-    private final String type;
-
-
-    private final Map<ConfigurationType, Configuration> minimumRequirement = new HashMap<>();
+    private final Map<ConfigurationType, Configuration> minimumRequirement;
 
     private TaskStatus status = TaskStatus.PENDING;
 
-    public Task(String type) {
-        this.type = type;
-    }
-
-    public String getType() {
-        return type;
+    public Task(String id, Runnable work, Map<ConfigurationType, Configuration> configurationMap) {
+        this.id = id;
+        this.work = work;
+        this.minimumRequirement = configurationMap;
     }
 
     public Map<ConfigurationType, Configuration> getMinimumRequirement() {
@@ -52,12 +40,13 @@ public abstract class Task {
         return id;
     }
 
-    public void setStatus(TaskStatus status) {
+    private void setStatus(TaskStatus status) {
         this.status = status;
         if(status.equals(TaskStatus.RUNNING)) {
             startTime = System.currentTimeMillis();
         }
         if(status.equals(TaskStatus.COMPLETED)) {
+            System.out.println("Task " + id + " completed");
             endTime = System.currentTimeMillis();
         }
     }
@@ -71,8 +60,17 @@ public abstract class Task {
     }
 
     public TaskStatus getStatus() {
-
         return status;
+    }
+
+    @Override
+    public void run() {
+        try {
+            this.setStatus(TaskStatus.RUNNING);
+            this.work.run();
+        } finally {
+            this.setStatus(TaskStatus.COMPLETED);
+        }
     }
 
 

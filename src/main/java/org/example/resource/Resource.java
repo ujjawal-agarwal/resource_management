@@ -6,13 +6,13 @@ import org.example.task.Task;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public abstract class Resource {
-    double price;
+    private double price;
 
-    private final String id = UUID.randomUUID().toString();
+    private final String id;
     private final AtomicBoolean isAvailable = new AtomicBoolean(true);
 
     private final Map<ConfigurationType, Configuration> configurations = new HashMap<>();
@@ -20,7 +20,8 @@ public abstract class Resource {
 
     public final String type;
 
-    public Resource(double price, String resourceType) {
+    public Resource(String id, double price, String resourceType) {
+        this.id = id;
         this.price = price;
         this.type = resourceType;
     }
@@ -29,12 +30,34 @@ public abstract class Resource {
         return id;
     }
 
-    public void executeTask(Task task) {
-        //task.run()
+    public CompletableFuture<Void> assignTask(Task task) {
+        this.setAvailable(false);
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        new Thread(
+                () -> {
+                    try {
+                        System.out.println("Resource: " + id + " executing... " + "task: " + task.getId());
+                        task.run();
+                        this.setAvailable(true);
+                        future.complete(null);
+                    } catch (Exception e) {
+                        future.completeExceptionally(e);
+                    }
+                }
+        ).start();
+        return future;
     }
 
     public String getType() {
         return type;
+    }
+
+    public double getPrice() {
+        return price;
+    }
+
+    public void setPrice(double price) {
+        this.price = price;
     }
 
     public void addConfiguration(Configuration configuration) {
@@ -49,11 +72,30 @@ public abstract class Resource {
         return isAvailable.get();
     }
 
-    public void setAvailable(boolean available) {
-        isAvailable.set(available);
+    private void setAvailable(boolean available) {
+//        System.out.println("Setting resource " + id + " flag: " + available);
+        if (available == isAvailable.compareAndExchange(!available, available))
+            throw new RuntimeException("Resource: " + id + " flag already " + available);
     }
 
     public Map<ConfigurationType, Configuration> getConfigurations() {
         return configurations;
     }
+
+    public boolean isEligible(Map<ConfigurationType, Configuration> configurations) {
+        for (ConfigurationType type:
+             configurations.keySet()) {
+            Configuration configuration = this.getConfigurations().get(type);
+            if (configuration == null || configuration.getUnits() < configurations.get(type).getUnits())
+                return false;
+        }
+        return true;
+    }
+
+    public int comparePrice(Resource r) {
+        return Double.compare(this.getPrice(), r.getPrice());
+    }
+
+    public abstract int compareConfiguration(Resource r);
+
 }
